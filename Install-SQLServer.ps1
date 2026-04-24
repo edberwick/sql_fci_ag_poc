@@ -65,22 +65,22 @@ Write-Host "`n[4/5] Installing SQL Server 2022 Enterprise..." -ForegroundColor C
 Write-Host "This may take 10-30 minutes. Please be patient..." -ForegroundColor Gray
 
 $installArgs = @(
-    "/Q",
+    "/q",
     "/ACTION=Install",
     "/IACCEPTSQLSERVERLICENSETERMS",
     "/INSTANCENAME=$SqlInstanceName",
-    "/FEATURES=SQLEngine,FullText,PolyBase",
+    "/FEATURES=SQLEngine",
     "/SQLSYSADMINACCOUNTS=$SqlSysAdminAccounts",
     "/TCPENABLED=1",
     "/SECURITYMODE=SQL",
     "/SAPWD=P@ssw0rd123!",
-    "/SQLCOLLATION=SQL_Latin1_General_CP1_CI_AS",
-    "/IAcceptSQLServerLicenseTerms=True"
+    "/SQLCOLLATION=SQL_Latin1_General_CP1_CI_AS"
 )
 
 try {
-    Write-Host "Running: $ISOPath $($installArgs -join ' ')" -ForegroundColor Gray
-    $process = Start-Process -FilePath $ISOPath -ArgumentList $installArgs -Wait -PassThru -NoNewWindow
+    $argumentString = $installArgs -join " "
+    Write-Host "Running: $ISOPath $argumentString" -ForegroundColor Gray
+    $process = Start-Process -FilePath $ISOPath -ArgumentList $argumentString -Wait -PassThru -NoNewWindow
     
     if ($process.ExitCode -eq 0) {
         Write-Host "SQL Server 2022 Enterprise installed successfully" -ForegroundColor Green
