@@ -6,7 +6,7 @@ This Terraform configuration creates three Azure Windows VMs in separate VNETs a
 
 - Azure CLI installed and authenticated (`az login`)
 - Terraform installed (v1.14.9 or later)
-- Sufficient Azure quota for VMs
+- Sufficient Azure quota for VMs (using cost-optimized Standard_B2s burstable VMs)
 
 ## Deployment
 
@@ -56,8 +56,8 @@ For detailed steps, refer to: [Always On Availability Groups for SQL Server on A
 
 ## Networking Notes
 
-- **Egress to Internet**: NSGs are configured to allow outbound traffic to the internet from the VM subnets.
-- **Secure Access**: Azure Bastion is deployed in each region for secure RDP access to VMs without exposing them publicly.
+- **Egress to Internet**: Dynamic public IPs are assigned to VM NICs for outbound internet access, providing a cost-effective alternative to NAT Gateways.
+- **Secure Access**: Azure Bastion (Basic SKU) is deployed in each region for secure RDP access to VMs without exposing them publicly.
 
 ## Cleanup
 
@@ -68,7 +68,7 @@ terraform destroy -auto-approve
 
 ## Notes
 
-- VMs use Standard_D2s_v5 size with Windows Server 2022.
+- VMs use cost-optimized Standard_B2s burstable size with Windows Server 2022.
 - Password is set to "Password123!" - change in production.
 - For cross-region AG, ensure VNET peering or ExpressRoute for connectivity.
 - This is for POC purposes; adjust VM sizes and configurations as needed for production.
