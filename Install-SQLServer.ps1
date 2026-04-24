@@ -1,4 +1,4 @@
-# SQL Server 2022 Enterprise Edition Installation Script
+# SQL Server 2025 Enterprise Edition Installation Script
 # Run as Administrator
 # Usage: .\Install-SQLServer.ps1
 
@@ -8,13 +8,14 @@ $ErrorActionPreference = "Stop"
 
 # Configuration
 $DownloadPath = "C:\SQLServerSetup"
-$ISOFile = "SQL2022-SSEI-Eval.exe"
-$ISOUrl = "https://go.microsoft.com/fwlink/p/?linkid=2215158&clcid=0x409"
+$ISOFile = "SQL2025-SSEI-Eval.exe"
+$ISOUrl = "https://go.microsoft.com/fwlink/?linkid=2342429&clcid=0x409"
+$ConfigFile = "C:\Configuration.ini"
 $SqlInstanceName = "MSSQLSERVER"
 $SqlSysAdminAccounts = "BUILTIN\Administrators"
 
 Write-Host "========================================" -ForegroundColor Green
-Write-Host "SQL Server 2022 Enterprise Installation" -ForegroundColor Green
+Write-Host "SQL Server 2025 Enterprise Installation" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 
 # Step 1: Create download directory
@@ -27,7 +28,7 @@ if (-not (Test-Path $DownloadPath)) {
 }
 
 # Step 2: Download SQL Server Installer
-Write-Host "`n[2/5] Downloading SQL Server 2022 installer..." -ForegroundColor Cyan
+Write-Host "`n[2/6] Downloading SQL Server 2025 installer..." -ForegroundColor Cyan
 $ISOPath = Join-Path $DownloadPath $ISOFile
 
 if (Test-Path $ISOPath) {
@@ -45,8 +46,92 @@ if (Test-Path $ISOPath) {
     }
 }
 
-# Step 3: Install .NET Framework 3.5 (prerequisite)
-Write-Host "`n[3/5] Installing .NET Framework 3.5..." -ForegroundColor Cyan
+# Step 3: Create Configuration File
+Write-Host "`n[3/6] Creating SQL Server configuration file..." -ForegroundColor Cyan
+try {
+    $configContent = @"
+# SQL Server 2025 Enterprise Edition Configuration File
+# This file contains all installation parameters for unattended setup
+
+[OPTIONS]
+
+# Installation
+ACTION="Install"
+IACCEPTSQLSERVERLICENSETERMS="True"
+QUIET="True"
+SUPPRESSPRIVACYSTATEMENTNOTICE="True"
+SUPPRESSPAIDEDITIONNOTICE="True"
+ENU="True"
+
+# Instance Configuration
+INSTANCENAME="$SqlInstanceName"
+INSTANCEID="$SqlInstanceName"
+INSTANCEDIR="C:\Program Files\Microsoft SQL Server"
+
+# Features to Install
+FEATURES="SQLEngine"
+
+# Service Accounts
+SQLSVCACCOUNT="NT AUTHORITY\SYSTEM"
+SQLSVCSTARTUPTYPE="Automatic"
+AGTSVCACCOUNT="NT AUTHORITY\SYSTEM"
+AGTSVCSTARTUPTYPE="Automatic"
+BROWSERSVCSTARTUPTYPE="Automatic"
+
+# Authentication Mode
+SECURITYMODE="SQL"
+SAPWD="P@ssw0rd123!"
+
+# System Administrators
+SQLSYSADMINACCOUNTS="$SqlSysAdminAccounts"
+
+# Database Engine Configuration
+SQLCOLLATION="SQL_Latin1_General_CP1_CI_AS"
+SQLBACKUPDIR="C:\Program Files\Microsoft SQL Server\MSSQL17.$SqlInstanceName\MSSQL\Backup"
+SQLTEMPDBDIR="C:\Program Files\Microsoft SQL Server\MSSQL17.$SqlInstanceName\MSSQL\Data"
+SQLTEMPDBLOGDIR="C:\Program Files\Microsoft SQL Server\MSSQL17.$SqlInstanceName\MSSQL\Data"
+SQLUSERDBDIR="C:\Program Files\Microsoft SQL Server\MSSQL17.$SqlInstanceName\MSSQL\Data"
+SQLUSERDBLOGDIR="C:\Program Files\Microsoft SQL Server\MSSQL17.$SqlInstanceName\MSSQL\Data"
+
+# Network Configuration
+TCPENABLED="1"
+NPENABLED="0"
+BROWSERSVCSTARTUPTYPE="Automatic"
+
+# Error and Usage Reporting
+ERRORREPORTING="False"
+SQMREPORTING="False"
+ENABLEMICROSOFTUPDATE="False"
+
+# Installation Paths
+INSTALLSHAREDDIR="C:\Program Files\Microsoft SQL Server"
+INSTALLSHAREDWOWDIR="C:\Program Files (x86)\Microsoft SQL Server"
+INSTANCEMSDIR="C:\Program Files\Microsoft SQL Server"
+
+# Performance Settings
+SQLMAXMEMORY="2147483647"
+SQLMINMEMORY="0"
+
+# Maintenance
+FILESTREAMLEVEL="0"
+X86="False"
+
+# Update Source
+UPDATEENABLED="False"
+USEMICROSOFTUPDATE="False"
+UPDATESOURCE="MU"
+"@
+
+    $configContent | Out-File -FilePath $ConfigFile -Encoding UTF8 -Force
+    Write-Host "Configuration file created: $ConfigFile" -ForegroundColor Green
+} catch {
+    Write-Host "ERROR: Failed to create configuration file" -ForegroundColor Red
+    Write-Host $_.Exception.Message -ForegroundColor Red
+    exit 1
+}
+
+# Step 4: Install .NET Framework 3.5 (prerequisite)
+Write-Host "`n[4/6] Installing .NET Framework 3.5..." -ForegroundColor Cyan
 try {
     $dotnetStatus = Get-WindowsOptionalFeature -Online -FeatureName NetFx3 | Select-Object -ExpandProperty State
     if ($dotnetStatus -eq "Enabled") {
@@ -60,21 +145,16 @@ try {
     Write-Host "WARNING: Could not verify .NET Framework 3.5 status: $($_.Exception.Message)" -ForegroundColor Yellow
 }
 
-# Step 4: Install SQL Server
-Write-Host "`n[4/5] Installing SQL Server 2022 Enterprise..." -ForegroundColor Cyan
+# Step 5: Install SQL Server
+Write-Host "`n[5/6] Installing SQL Server 2025 Enterprise..." -ForegroundColor Cyan
 Write-Host "This may take 10-30 minutes. Please be patient..." -ForegroundColor Gray
 
+# Use only allowed command line switches
 $installArgs = @(
-    "/q",
-    "/ACTION=Install",
-    "/IACCEPTSQLSERVERLICENSETERMS",
-    "/INSTANCENAME=$SqlInstanceName",
-    "/FEATURES=SQLEngine",
-    "/SQLSYSADMINACCOUNTS=$SqlSysAdminAccounts",
-    "/TCPENABLED=1",
-    "/SECURITYMODE=SQL",
-    "/SAPWD=P@ssw0rd123!",
-    "/SQLCOLLATION=SQL_Latin1_General_CP1_CI_AS"
+    "/IAcceptSqlServerLicenseTerms",
+    "/Quiet",
+    "/ConfigurationFile=$ConfigFile",
+    "/Action=Install"
 )
 
 try {
@@ -83,10 +163,10 @@ try {
     $process = Start-Process -FilePath $ISOPath -ArgumentList $argumentString -Wait -PassThru -NoNewWindow
     
     if ($process.ExitCode -eq 0) {
-        Write-Host "SQL Server 2022 Enterprise installed successfully" -ForegroundColor Green
+        Write-Host "SQL Server 2025 Enterprise installed successfully" -ForegroundColor Green
     } else {
         Write-Host "WARNING: Installation exited with code $($process.ExitCode)" -ForegroundColor Yellow
-        Write-Host "Check %ProgramFiles%\Microsoft SQL Server\160\Setup Bootstrap\Log for details" -ForegroundColor Yellow
+        Write-Host "Check %ProgramFiles%\Microsoft SQL Server\170\Setup Bootstrap\Log for details" -ForegroundColor Yellow
     }
 } catch {
     Write-Host "ERROR: Failed to install SQL Server" -ForegroundColor Red
@@ -94,8 +174,8 @@ try {
     exit 1
 }
 
-# Step 5: Enable SQL Server and SQL Browser services
-Write-Host "`n[5/5] Configuring SQL Server services..." -ForegroundColor Cyan
+# Step 6: Enable SQL Server and SQL Browser services
+Write-Host "`n[6/6] Configuring SQL Server services..." -ForegroundColor Cyan
 
 # Wait for services to be available
 Start-Sleep -Seconds 5
@@ -127,7 +207,7 @@ try {
 }
 
 # Verification
-Write-Host "`n[6/5] Verifying installation..." -ForegroundColor Cyan
+Write-Host "`n[7/6] Verifying installation..." -ForegroundColor Cyan
 try {
     $sqlProcess = Get-Process -Name sqlservr -ErrorAction SilentlyContinue
     if ($sqlProcess) {
@@ -142,7 +222,7 @@ try {
 Write-Host "`n========================================" -ForegroundColor Green
 Write-Host "Installation Summary" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
-Write-Host "SQL Server Version: 2022 Enterprise Edition" -ForegroundColor Cyan
+Write-Host "SQL Server Version: 2025 Enterprise Edition" -ForegroundColor Cyan
 Write-Host "Instance Name: $SqlInstanceName" -ForegroundColor Cyan
 Write-Host "TCP Enabled: Yes" -ForegroundColor Cyan
 Write-Host "Authentication: Mixed (Windows + SQL)" -ForegroundColor Cyan

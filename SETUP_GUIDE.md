@@ -13,7 +13,7 @@ This directory contains standalone PowerShell scripts to set up SQL Server 2022 
 ## Scripts Overview
 
 ### 1. Install-SQLServer.ps1
-Downloads and installs SQL Server 2022 Enterprise Edition on the target VM.
+Downloads and installs SQL Server 2022 Enterprise Edition on the target VM using a configuration file.
 
 **Usage:**
 ```powershell
@@ -22,12 +22,19 @@ Downloads and installs SQL Server 2022 Enterprise Edition on the target VM.
 
 **What it does:**
 - Downloads SQL Server 2022 installer
+- Creates a Configuration.ini file with all installation parameters
 - Installs required .NET Framework 3.5
-- Installs SQL Server 2022 Enterprise Edition
+- Installs SQL Server 2022 Enterprise Edition using only allowed command line switches
 - Enables TCP/IP protocol
 - Configures Mixed Mode Authentication (Windows + SQL)
 - Starts SQL Server and SQL Browser services
 - Sets services to start automatically
+
+**Command line switches used:**
+- `/IAcceptSqlServerLicenseTerms`
+- `/Quiet`
+- `/ConfigurationFile=C:\Configuration.ini`
+- `/Action=Install`
 
 **Credentials:**
 - SA Account: sa

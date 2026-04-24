@@ -4,7 +4,7 @@
 
 | Script | Run On | Purpose | Time |
 |--------|--------|---------|------|
-| **Install-SQLServer.ps1** | Each VM (all 3) | Install SQL Server 2022 Enterprise | 20-30 min |
+| **Install-SQLServer.ps1** | Each VM (all 3) | Install SQL Server 2022 Enterprise using config file | 20-30 min |
 | **Create-DummyDatabase.ps1** | Primary Only | Create test DB with sample data | 2-3 min |
 | **Configure-AG.ps1** | Primary Only | Create AG and configure replication | 5-10 min |
 | **Configure-Secondary-Node.ps1** | Each Secondary | Restore DB and join AG | 5-10 min per node |

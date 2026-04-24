@@ -40,7 +40,7 @@ After the VMs are created:
 
 2. **Install SQL Server** on each VM:
    - RDP into each VM using Bastion.
-   - Download and install SQL Server 2022 (or your preferred version) from Microsoft's website or use the SQL Server Installation Center.
+   - Download and install SQL Server 2025 (or your preferred version) from Microsoft's website or use the SQL Server Installation Center.
    - Configure SQL Server with mixed authentication mode and set a strong SA password.
 
 3. **Domain Setup (Recommended for AG)**:
