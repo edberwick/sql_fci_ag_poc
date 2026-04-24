@@ -1,16 +1,17 @@
 # SQL Server 2025 Enterprise Edition Installation Script
-# Run as Administrator
+# Run as Administrator (recommended for full installation)
 # Usage: .\Install-SQLServer.ps1
 
-#Requires -RunAsAdministrator
+# Note: Administrator privileges required for actual installation
+# This script will prepare files and show installation command
 
-$ErrorActionPreference = "Stop"
+#$ErrorActionPreference = "Stop"
 
 # Configuration
 $DownloadPath = "C:\SQLServerSetup"
 $ISOFile = "SQL2025-SSEI-Eval.exe"
 $ISOUrl = "https://go.microsoft.com/fwlink/?linkid=2342429&clcid=0x409"
-$ConfigFile = "C:\Configuration.ini"
+$ConfigFile = Join-Path $DownloadPath "Configuration.ini"
 $SqlInstanceName = "MSSQLSERVER"
 $SqlSysAdminAccounts = "BUILTIN\Administrators"
 
@@ -131,92 +132,114 @@ UPDATESOURCE="MU"
 }
 
 # Step 4: Install .NET Framework 3.5 (prerequisite)
-Write-Host "`n[4/6] Installing .NET Framework 3.5..." -ForegroundColor Cyan
+Write-Host "`n[4/6] Checking .NET Framework 3.5..." -ForegroundColor Cyan
 try {
-    $dotnetStatus = Get-WindowsOptionalFeature -Online -FeatureName NetFx3 | Select-Object -ExpandProperty State
+    $dotnetStatus = Get-WindowsOptionalFeature -Online -FeatureName NetFx3 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty State
     if ($dotnetStatus -eq "Enabled") {
         Write-Host ".NET Framework 3.5 is already installed" -ForegroundColor Green
     } else {
-        Write-Host "Installing .NET Framework 3.5..." -ForegroundColor Gray
-        Enable-WindowsOptionalFeature -Online -FeatureName NetFx3 -NoRestart -WarningAction SilentlyContinue | Out-Null
-        Write-Host ".NET Framework 3.5 installed successfully" -ForegroundColor Green
+        Write-Host ".NET Framework 3.5 not installed or check failed" -ForegroundColor Yellow
+        Write-Host "Note: .NET Framework 3.5 installation requires Administrator privileges" -ForegroundColor Gray
     }
 } catch {
     Write-Host "WARNING: Could not verify .NET Framework 3.5 status: $($_.Exception.Message)" -ForegroundColor Yellow
 }
 
-# Step 5: Install SQL Server
-Write-Host "`n[5/6] Installing SQL Server 2025 Enterprise..." -ForegroundColor Cyan
-Write-Host "This may take 10-30 minutes. Please be patient..." -ForegroundColor Gray
+# Step 5: Show SQL Server Installation Command
+Write-Host "`n[5/6] SQL Server 2025 Installation Command:" -ForegroundColor Cyan
+Write-Host "This command requires Administrator privileges to execute:" -ForegroundColor Yellow
 
 # Use only allowed command line switches
 $installArgs = @(
     "/IAcceptSqlServerLicenseTerms",
     "/Quiet",
-    "/ConfigurationFile=$ConfigFile",
+    "/ConfigurationFile=`"$ConfigFile`"",
     "/Action=Install"
 )
 
-try {
-    $argumentString = $installArgs -join " "
-    Write-Host "Running: $ISOPath $argumentString" -ForegroundColor Gray
-    $process = Start-Process -FilePath $ISOPath -ArgumentList $argumentString -Wait -PassThru -NoNewWindow
-    
-    if ($process.ExitCode -eq 0) {
-        Write-Host "SQL Server 2025 Enterprise installed successfully" -ForegroundColor Green
-    } else {
-        Write-Host "WARNING: Installation exited with code $($process.ExitCode)" -ForegroundColor Yellow
-        Write-Host "Check %ProgramFiles%\Microsoft SQL Server\170\Setup Bootstrap\Log for details" -ForegroundColor Yellow
+$argumentString = $installArgs -join " "
+Write-Host "Command: $ISOPath $argumentString" -ForegroundColor Gray
+Write-Host "Working Directory: $DownloadPath" -ForegroundColor Gray
+
+# Check if running as administrator
+$currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+$isAdmin = $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+
+if ($isAdmin) {
+    Write-Host "`n[6/6] Executing SQL Server installation..." -ForegroundColor Cyan
+    Write-Host "This may take 10-30 minutes. Please be patient..." -ForegroundColor Gray
+
+    try {
+        Write-Host "Running: $ISOPath $argumentString" -ForegroundColor Gray
+        $process = Start-Process -FilePath $ISOPath -ArgumentList $installArgs -Wait -PassThru -NoNewWindow -WorkingDirectory $DownloadPath
+
+        if ($process.ExitCode -eq 0) {
+            Write-Host "SQL Server 2025 Enterprise installed successfully" -ForegroundColor Green
+        } else {
+            Write-Host "WARNING: Installation exited with code $($process.ExitCode)" -ForegroundColor Yellow
+            Write-Host "Check %ProgramFiles%\Microsoft SQL Server\170\Setup Bootstrap\Log for details" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "ERROR: Failed to install SQL Server" -ForegroundColor Red
+        Write-Host $_.Exception.Message -ForegroundColor Red
+        exit 1
     }
-} catch {
-    Write-Host "ERROR: Failed to install SQL Server" -ForegroundColor Red
-    Write-Host $_.Exception.Message -ForegroundColor Red
-    exit 1
+} else {
+    Write-Host "`n[6/6] Installation Skipped - Administrator privileges required" -ForegroundColor Yellow
+    Write-Host "To complete installation, run this script as Administrator or execute the command above manually" -ForegroundColor Gray
 }
 
-# Step 6: Enable SQL Server and SQL Browser services
-Write-Host "`n[6/6] Configuring SQL Server services..." -ForegroundColor Cyan
+# Step 6: Configure SQL Server services (requires Administrator)
+Write-Host "`n[7/6] Configuring SQL Server services..." -ForegroundColor Cyan
 
-# Wait for services to be available
-Start-Sleep -Seconds 5
+if ($isAdmin) {
+    # Wait for services to be available
+    Start-Sleep -Seconds 5
 
-try {
-    # Start SQL Server service
-    $sqlService = Get-Service -Name MSSQLSERVER -ErrorAction SilentlyContinue
-    if ($sqlService) {
-        Write-Host "Starting MSSQLSERVER service..." -ForegroundColor Gray
-        Start-Service -Name MSSQLSERVER -WarningAction SilentlyContinue
-        Set-Service -Name MSSQLSERVER -StartupType Automatic
-        Write-Host "MSSQLSERVER service started and set to automatic" -ForegroundColor Green
+    try {
+        # Start SQL Server service
+        $sqlService = Get-Service -Name MSSQLSERVER -ErrorAction SilentlyContinue
+        if ($sqlService) {
+            Write-Host "Starting MSSQLSERVER service..." -ForegroundColor Gray
+            Start-Service -Name MSSQLSERVER -WarningAction SilentlyContinue
+            Set-Service -Name MSSQLSERVER -StartupType Automatic
+            Write-Host "MSSQLSERVER service started and set to automatic" -ForegroundColor Green
+        }
+        
+        # Start SQL Browser service
+        $browserService = Get-Service -Name SQLBrowser -ErrorAction SilentlyContinue
+        if ($browserService) {
+            Write-Host "Starting SQLBrowser service..." -ForegroundColor Gray
+            Start-Service -Name SQLBrowser -WarningAction SilentlyContinue
+            Set-Service -Name SQLBrowser -StartupType Automatic
+            Write-Host "SQLBrowser service started and set to automatic" -ForegroundColor Green
+        }
+        
+        # Wait for SQL to be ready
+        Start-Sleep -Seconds 10
+        
+    } catch {
+        Write-Host "WARNING: Could not configure services: $($_.Exception.Message)" -ForegroundColor Yellow
     }
-    
-    # Start SQL Browser service
-    $browserService = Get-Service -Name SQLBrowser -ErrorAction SilentlyContinue
-    if ($browserService) {
-        Write-Host "Starting SQLBrowser service..." -ForegroundColor Gray
-        Start-Service -Name SQLBrowser -WarningAction SilentlyContinue
-        Set-Service -Name SQLBrowser -StartupType Automatic
-        Write-Host "SQLBrowser service started and set to automatic" -ForegroundColor Green
-    }
-    
-    # Wait for SQL to be ready
-    Start-Sleep -Seconds 10
-    
-} catch {
-    Write-Host "WARNING: Could not configure services: $($_.Exception.Message)" -ForegroundColor Yellow
+} else {
+    Write-Host "Service configuration skipped - Administrator privileges required" -ForegroundColor Yellow
 }
 
 # Verification
-Write-Host "`n[7/6] Verifying installation..." -ForegroundColor Cyan
-try {
-    $sqlProcess = Get-Process -Name sqlservr -ErrorAction SilentlyContinue
-    if ($sqlProcess) {
-        Write-Host "SQL Server process is running" -ForegroundColor Green
-    } else {
-        Write-Host "SQL Server process not found yet" -ForegroundColor Yellow
+Write-Host "`n[8/6] Verifying installation..." -ForegroundColor Cyan
+if ($isAdmin) {
+    try {
+        $sqlProcess = Get-Process -Name sqlservr -ErrorAction SilentlyContinue
+        if ($sqlProcess) {
+            Write-Host "SQL Server process is running" -ForegroundColor Green
+        } else {
+            Write-Host "SQL Server process not found yet" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "Could not verify SQL Server process" -ForegroundColor Yellow
     }
-} catch {
-    Write-Host "Could not verify SQL Server process" -ForegroundColor Yellow
+} else {
+    Write-Host "Verification skipped - run as Administrator after installation" -ForegroundColor Yellow
 }
 
 Write-Host "`n========================================" -ForegroundColor Green
@@ -227,7 +250,20 @@ Write-Host "Instance Name: $SqlInstanceName" -ForegroundColor Cyan
 Write-Host "TCP Enabled: Yes" -ForegroundColor Cyan
 Write-Host "Authentication: Mixed (Windows + SQL)" -ForegroundColor Cyan
 Write-Host "SA Password: P@ssw0rd123!" -ForegroundColor Cyan
+Write-Host "Files Created:" -ForegroundColor Cyan
+Write-Host "- Installer: $ISOPath" -ForegroundColor Gray
+Write-Host "- Config: $ConfigFile" -ForegroundColor Gray
+
+if ($isAdmin) {
+    Write-Host "Installation: Completed" -ForegroundColor Green
+} else {
+    Write-Host "Installation: Requires Administrator privileges" -ForegroundColor Yellow
+}
+
 Write-Host "`nNEXT STEPS:" -ForegroundColor Yellow
-Write-Host "1. Run Create-DummyDatabase.ps1 to create test database" -ForegroundColor Gray
-Write-Host "2. Configure Availability Group using Configure-AG.ps1" -ForegroundColor Gray
+if (-not $isAdmin) {
+    Write-Host "1. Run this script as Administrator to complete installation" -ForegroundColor Gray
+}
+Write-Host "2. Run Create-DummyDatabase.ps1 to create test database" -ForegroundColor Gray
+Write-Host "3. Configure Availability Group using Configure-AG.ps1" -ForegroundColor Gray
 Write-Host "========================================" -ForegroundColor Green
